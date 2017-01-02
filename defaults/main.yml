@@ -1,3 +1,5 @@
 ---
 domain: "{{ lookup('env','DOMAIN') | default('mydomain.local',true) }}"
 bind_secondary_dns: "{{ lookup('env','SECONDARY_DNS') | default('8.8.8.8',true) }}"
+dsmgr_password: "{{ lookup('env','MGR_PASS') | default('Fr33IPA#DS#MGR',true) }}"
+admin_password: "{{ lookup('env','ADMIN_PASS') | default('Fr33IPA#DS#Admin',true) }}"
