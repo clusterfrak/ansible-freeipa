@@ -1,0 +1,9 @@
+zone "{{domain}}" {
+    type master;
+    file "/etc/named/zones/db.{{domain}}"; # zone file path
+    };
+
+zone "{{ptr_zone.stdout}}.in-addr.arpa" {
+    type master;
+    file "/etc/named/zones/db.{{ptr_zone.stdout}}";  # PTR Subnet
+    };

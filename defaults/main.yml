@@ -1,0 +1,3 @@
+---
+domain: "{{ lookup('env','DOMAIN') | default('mydomain.local',true) }}"
+bind_secondary_dns: "{{ lookup('env','SECONDARY_DNS') | default('8.8.8.8',true) }}"

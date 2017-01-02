@@ -1,0 +1,50 @@
+---
+- name: gather netowrk cidr
+  shell: ip addr | grep inet | grep {{ansible_default_ipv4.interface}} | awk '{print $2}' | cut -d"/" -f2
+  register: subnet_cidr
+
+- name: calculate ptr zone
+  shell: ip addr | grep inet | grep {{ansible_default_ipv4.interface}} | awk '{print $2}' | cut -d"/" -f1 | awk -F"." '{print $3"."$2"."$1}'
+  register: ptr_zone
+
+- name: calculate ptr nameserver id
+  shell: ip addr | grep inet | grep {{ansible_default_ipv4.interface}} | awk '{print $2}' | cut -d"/" -f1 | awk -F"." '{print $4}'
+  register: ptr_id
+
+- name: adding CentOS6 epel repo
+  package: name={{item}} state=installed
+  with_items:
+    - epel-release
+
+- name: adding required packages
+  package: name={{item}} state=installed
+  with_items:
+    - bind
+    - bind-utils
+
+- name: backup named.conf
+  copy:
+    src: /etc/named.conf
+    dest: /etc/named.conf.backup
+
+- name: configure named.conf
+  template: src=named.conf.j2 dest=/etc/named.conf owner=named group=named mode=0775
+  notify: restart bind
+
+- name: configure named.conf.local
+  template: src=named.conf.local.j2 dest=/etc/named/named.conf.local owner=named group=named mode=0775
+  notify: restart bind
+
+- name: create zones directory to store zone data
+  file: path=/etc/named/zones state=directory owner=named group=named mode=0775 recurse=yes
+
+- name: configure {{domain}} zone
+  template: src=db.zone.j2 dest=/etc/named/zones/db.{{domain}} owner=named group=named mode=0644
+  notify: restart bind
+
+- name: configure {{domain}} PTR zone
+  template: src=db.ptrzone.j2 dest=/etc/named/zones/db.{{ptr_zone.stdout}} owner=named group=named mode=0644
+  notify: restart bind
+
+- name: start bind
+  service: name=named state=started enabled=yes

@@ -1,0 +1,25 @@
+;
+; BIND data file for local loopback interface
+;
+$ORIGIN {{ptr_zone.stdout}}.in-addr.arpa.
+$TTL    604800
+@       IN      SOA     ns1.{{domain}}. root.{{domain}}. (
+                1               ; Serial
+                604800          ; Refresh
+                86400           ; Retry
+                2419200         ; Expire
+                604800 )        ; Negative Cache TTL
+
+	IN	NS	ns1.{{domain}}.	
+
+
+; Administrative Records
+{{ptr_id.stdout}}	IN	PTR	{{domain}}.		; {{ansible_default_ipv4.address}}
+{{ptr_id.stdout}}	IN	PTR	ns1.{{domain}}.		; {{ansible_default_ipv4.address}}
+;4	IN	PTR	ns2.{{domain}}.
+
+
+; PTR Records
+{{ptr_id.stdout}}	IN	PTR	{{ansible_hostname}}.{{domain}}.	; {{ansible_default_ipv4.address}}
+{{ptr_id.stdout}}	IN      PTR     ipa.{{domain}}.		; {{ansible_default_ipv4.address}}
+;4      IN      PTR     server2.{{domain}}.
