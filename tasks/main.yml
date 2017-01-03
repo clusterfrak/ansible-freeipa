@@ -12,7 +12,11 @@
   shell: ip addr | grep inet | grep {{ansible_default_ipv4.interface}} | awk '{print $2}' | cut -d"/" -f1 | awk -F"." '{print $4}'
   register: ptr_id
 
-# Stat the IPA default.conf file, if the file exists, then IPA is already configured.
+# Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
+- name: stat Bind configuration
+  stat: path=/etc/named.conf
+  register: named_stat
+
 - name: stat IPA configuration
   stat: path=/etc/ipa/default.conf
   register: ipa_stat
@@ -33,6 +37,7 @@
   copy:
     src: /etc/named.conf
     dest: /etc/named.conf.backup
+    when: named_stat.stat.exists == False
 
 - name: configure named.conf
   template: src=named.conf.j2 dest=/etc/named.conf owner=named group=named mode=0775
