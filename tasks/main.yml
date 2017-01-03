@@ -1,97 +1,22 @@
 ---
-# Set Variables used in various tasks
-- name: gather network cidr
-  shell: ip addr | grep inet | grep {{ansible_default_ipv4.interface}} | awk '{print $2}' | cut -d"/" -f2
-  register: subnet_cidr
-
-- name: calculate ptr zone
-  shell: ip addr | grep inet | grep {{ansible_default_ipv4.interface}} | awk '{print $2}' | cut -d"/" -f1 | awk -F"." '{print $3"."$2"."$1}'
-  register: ptr_zone
-
-- name: calculate ptr nameserver id
-  shell: ip addr | grep inet | grep {{ansible_default_ipv4.interface}} | awk '{print $2}' | cut -d"/" -f1 | awk -F"." '{print $4}'
-  register: ptr_id
-
 # Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
-- name: stat Bind configuration
-  stat: path=/etc/named.conf
-  register: named_stat
-
 - name: stat IPA configuration
   stat: path=/etc/ipa/default.conf
   register: ipa_stat
 
-# BIND Installation
+# FreeIPA Installation
 - name: adding CentOS6 epel repo
   package: name={{item}} state=installed
   with_items:
     - epel-release
 
-- name: adding required packages
+- name: adding required freeipa packages
   package: name={{item}} state=installed
   with_items:
     - bind
     - bind-utils
-
-- name: backup named.conf
-  copy:
-    remote_src: True
-    src: /etc/named.conf
-    dest: /etc/named.conf.backup
-    # when: named_stat.stat.exists == False
-
-- name: configure named.conf
-  template: src=named.conf.j2 dest=/etc/named.conf owner=named group=named mode=0775
-  notify: restart bind
-
-- name: configure named.conf.local
-  template: src=named.conf.local.j2 dest=/etc/named/named.conf.local owner=named group=named mode=0775
-  notify: restart bind
-
-- name: create zones directory to store zone data
-  file: path=/etc/named/zones state=directory owner=named group=named mode=0775 recurse=yes
-
-- name: configure {{domain}} zone
-  template: src=db.zone.j2 dest=/etc/named/zones/db.{{domain}} owner=named group=named mode=0644
-  notify: restart bind
-
-- name: configure {{domain}} PTR zone
-  template: src=db.ptrzone.j2 dest=/etc/named/zones/db.{{ptr_zone.stdout}} owner=named group=named mode=0644
-  notify: restart bind
-
-- name: start bind
-  service: name=named state=started enabled=yes
-
-- name: reconfiguring /etc/resolv.conf to use local bind
-  lineinfile: dest=/etc/sysconfig/network-scripts/ifcfg-{{ansible_default_ipv4.interface}} state=present regexp='^DNS1=' line='DNS1={{ansible_default_ipv4.address}}'
-  notify: restart networking
-
-- name: reconfiguring /etc/resolv.conf to use local search domain
-  lineinfile: dest=/etc/sysconfig/network-scripts/ifcfg-{{ansible_default_ipv4.interface}} state=present regexp='^DOMAIN=' line='DOMAIN={{domain}}'
-  notify: restart networking
-
-- name: reconfiguring /etc/sysconfig/named selinux
-  lineinfile: dest=/etc/sysconfig/named state=present regexp='^ENABLE_ZONE_WRITE=' line='ENABLE_ZONE_WRITE=yes'
-
-- name: set selinux contexts
-  # seboolean: name=named_write_master_zones state=yes persistent=yes
-  command: setsebool named_write_master_zones 1
-
-
-# Free IPA Installation
-
-- name: installing freeipa packages
-  package: name={{item}} state=installed
-  with_items:
     - ipa-server
     - ipa-server-dns
-
-- name: installing freeipa
-  command: ipa-server-install --unattended --realm={{domain}} --ds-password={{dsmgr_password}} --admin-password={{admin_password}} --setup-dns --forwarder=8.8.8.8 --forwarder=8.8.4.4
-  when: ipa_stat.stat.exists == False
-
-# - name: Setting default IPA shell to bash
-#   command: ipa config-mod --defaultshell=/bin/bash                                                                                   
 
 - name: configuring firewall services
   firewalld: service={{item}} permanent=true state=enabled
@@ -101,15 +26,21 @@
     - ldap
     - ldaps
     - kerberos
-    - dns
 
 - name: configuring firewall UDP ports
   firewalld: port={{item}} permanent=true state=enabled
   with_items:
-    - 53/udp
     - 88/udp
     - 464/udp
     - 123/udp
 
 - name: reload the firewall
   command: firewall-cmd --reload
+
+- name: installing freeipa
+  command: ipa-server-install --unattended --realm={{domain}} --ds-password={{dsmgr_password}} --admin-password={{admin_password}} --setup-dns --forwarder=8.8.8.8 --forwarder=8.8.4.4
+  when: ipa_stat.stat.exists == False
+
+# - name: Setting default IPA shell to bash
+#   command: ipa config-mod --defaultshell=/bin/bash                                                                                   
+

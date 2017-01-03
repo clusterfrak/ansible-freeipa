@@ -1,6 +1,1 @@
 ---
-- name: restart bind
-  service: name=named state=restarted
-
-- name: restart networking
-  service: name=network state=restarted
