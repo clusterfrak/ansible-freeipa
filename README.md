@@ -109,7 +109,7 @@ This playbook will set up FreeIPA, FreeIPA will be configured to use the servers
 This playbook will set up FreeIPA, FreeIPA  will be configured to use the servers IP address, and automatically configured to use the customdomain.com domain. The Management and Admin passwords will also be set accordingly.
 
 '''bash
-export SITE_NAME="customdomain.com"
+export DOMAIN="customdomain.com"
 export MGR_PASS="mycustompassword"
 export ADMIN_PASS="mycustompassword2"
 '''
