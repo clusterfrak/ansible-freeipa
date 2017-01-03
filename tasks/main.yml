@@ -35,9 +35,10 @@
 
 - name: backup named.conf
   copy:
+    remote_src: True
     src: /etc/named.conf
     dest: /etc/named.conf.backup
-    when: named_stat.stat.exists == False
+    # when: named_stat.stat.exists == False
 
 - name: configure named.conf
   template: src=named.conf.j2 dest=/etc/named.conf owner=named group=named mode=0775
