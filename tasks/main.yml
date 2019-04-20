@@ -46,5 +46,13 @@
   when: firewalld_installed.results | selectattr("yumstate", "match", "installed") | list | length == 0
 
 - name: installing freeipa
-  command: ipa-server-install --unattended --realm={{ domain }} --ds-password={{ dsmgr_password }} --admin-password={{ admin_password }} --setup-dns --forwarder=8.8.8.8 --forwarder=8.8.4.4
-  when: ipa_stat.stat.exists == False
+  command: |
+    ipa-server-install \
+    --unattended \
+    --realm={{ domain }} \
+    --ds-password={{ dsmgr_password }} \
+    --admin-password={{ admin_password }} \
+    --setup-dns \
+    --forwarder=8.8.8.8 \
+    --forwarder=8.8.4.4
+  when: ipa_stat.stat.exists not False
