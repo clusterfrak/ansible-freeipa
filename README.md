@@ -107,14 +107,17 @@ Clusterfrak.bind or a pre-existing bind installation is required to run FreeIPA
 This playbook will set up FreeIPA, FreeIPA will be configured to use the servers IP address, and automatically configured to use the mydomain.local domain.
 
 `ansible-galaxy install --ignore-certs clusterfrak.freeipa`
-`cd /etc/ansible && vi install.yml`
 
 ```bash
-- hosts: localhost
+cat >> /etc/ansible/install.yml <<EOL
+- hosts: dns-servers
   become: true
   roles:
     - clusterfrak.freeipa
+EOL
 ```
+
+`cd /etc/ansible && ansible-playbook install.yml`
 
 <br>
 
@@ -131,14 +134,17 @@ export ADMIN_PASS="mycustompassword2"
 '''
 
 `ansible-galaxy install --ignore-certs clusterfrak.freeipa`
-`cd /etc/ansible && vi install.yml`
 
 ```bash
-- hosts: ds-servers
+cat >> /etc/ansible/install.yml <<EOL
+- hosts: dns-servers
   become: true
   roles:
     - clusterfrak.freeipa
+EOL
 ```
+
+`cd /etc/ansible && ansible-playbook install.yml`
 
 <br>
 

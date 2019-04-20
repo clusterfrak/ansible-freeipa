@@ -5,11 +5,10 @@
   register: ipa_stat
 
 # Check to see if firewalld is installed
-- name: Check if firewalld is installed
-  command: rpm -q firewalld
+- name: Check to see if the firewalld package is installed
+  yum:
+    list: firewalld
   register: firewalld_installed
-  failed_when: no
-  changed_when: no
 
 # FreeIPA Installation
 - name: adding epel repo
@@ -32,7 +31,7 @@
     - ldap
     - ldaps
     - kerberos
-  when: firewalld_installed.rc == 0
+  when: firewalld_installed.results | selectattr("yumstate", "match", "installed") | list | length == 0
 
 - name: configuring firewall UDP ports
   firewalld: port={{ item }} permanent=true state=enabled
@@ -40,11 +39,11 @@
     - 88/udp
     - 464/udp
     - 123/udp
-  when: firewalld_installed.rc == 0
+  when: firewalld_installed.results | selectattr("yumstate", "match", "installed") | list | length == 0
 
 - name: reload the firewall
   command: firewall-cmd --reload
-  when: firewalld_installed.rc == 0
+  when: firewalld_installed.results | selectattr("yumstate", "match", "installed") | list | length == 0
 
 - name: installing freeipa
   command: ipa-server-install --unattended --realm={{ domain }} --ds-password={{ dsmgr_password }} --admin-password={{ admin_password }} --setup-dns --forwarder=8.8.8.8 --forwarder=8.8.4.4
