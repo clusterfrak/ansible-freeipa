@@ -54,4 +54,4 @@
     --setup-dns \
     --forwarder=8.8.8.8 \
     --forwarder=8.8.4.4
-  when: ipa_stat.stat.exists not False
+  when: not ipa_stat.stat.exists
