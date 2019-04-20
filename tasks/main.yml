@@ -10,17 +10,35 @@
     manager: auto
 
 # FreeIPA Installation
+# Commenting out package as iteration through items is slow, and yum is faster.
+# - name: adding epel repo
+#   package: name={{ item }} state=installed
+#   with_items:
+#     - epel-release
+
 - name: adding epel repo
-  package: name={{ item }} state=installed
-  with_items:
-    - epel-release
+  yum: 
+    name:
+      - epel-release
+    state: present
+
+# Commenting out package as iteration through items is slow, and yum is faster.
+# - name: adding required freeipa packages
+#   package: name={{ item }} state=installed
+#   with_items:
+#     - bind
+#     - bind-utils
+#     - ipa-server
+#     - ipa-server-dns
 
 - name: adding required freeipa packages
-  package: name={{ item }} state=installed
-  with_items:
-    - bind
-    - bind-utils
-    - ipa-server
+  yum:
+    name:
+      - bind
+      - bind-utils
+      - ipa-server
+      - ipa-server-dns
+    state: present
 
 - name: configuring firewall services
   firewalld: service={{ item }} permanent=true state=enabled
