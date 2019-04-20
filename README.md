@@ -26,7 +26,7 @@ sudo yum -y install ansible
 
 <br>
 
-__3. &nbsp;&nbsp; Create directory structure:__ <br>
+__2. &nbsp;&nbsp; Create directory structure:__ <br>
 
 Create the directory structure that you are going to use. In this tutorial we are going to set up ansible roles in __/etc/ansible/roles__
 
@@ -37,7 +37,7 @@ mkdir -p /etc/ansible/roles || exit 0
 ```
 <br>
 
-__4. &nbsp;&nbsp; Set ansible host:__
+__3. &nbsp;&nbsp; Set ansible host:__
 
 Set Ansible localhost entry so that ansible knows it will run against localhost and can talk to itself on localhost without attempting to open a TCP socket connection. 
 
@@ -66,9 +66,9 @@ The clusterfrak.freeipa role uses a few environment variables to automatically c
 
 > Mapped Shell Environment Variables:
 
- - DOMAIN - FQDN that Bind and FreeIPA will be configured to provide services for. This MUST be an FQDN [default:mydomain.local]
- - MGR_PASS - Password set for management services within the FreeIPA Console
- - ADMIN_PASS - FreeIPA Administrator password
+ - ${DOMAIN}: FQDN that Bind and FreeIPA will be configured to provide services for. This MUST be an FQDN [default:mydomain.local]
+ - ${MGR_PASS}: Password set for management services within the FreeIPA Console
+ - ${ADMIN_PASS}: FreeIPA Administrator password
 
 <br>
 
@@ -98,15 +98,15 @@ Clusterfrak.bind or a pre-existing bind installation is required to run FreeIPA
 
 This playbook will set up FreeIPA, FreeIPA will be configured to use the servers IP address, and automatically configured to use the mydomain.local domain.
 
-    - hosts: ds-servers
+    - hosts: localhost
       become: true
-     roles:
+      roles:
        - clusterfrak.freeipa
 
 ## Example Playbook With Custom Values
 -------
 
-This playbook will set up FreeIPA, FreeIPA  will be configured to use the servers IP address, and automatically configured to use the customdomain.com domain. The Management and Admin passwords will also be set accordingly.
+This playbook will set up FreeIPA, FreeIPA  will be configured to use the servers IP address, and automatically configured to use the customdomain.com domain. The Management and Admin passwords will also be set accordingly. This assumes that your DS servers are already in the [ds-servers] group in your ansible inventory file.
 
 '''bash
 export DOMAIN="customdomain.com"
@@ -130,4 +130,3 @@ BSD
 [Rich Nason](http://nason.co) <br>
 [Clusterfrak Doc Site](http://clusterfrak.com) <br>
 [Container Doc Site](http://appcontainers.com) <br>
-
