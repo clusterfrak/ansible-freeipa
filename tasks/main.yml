@@ -4,6 +4,13 @@
   stat: path=/etc/ipa/default.conf
   register: ipa_stat
 
+# Check to see if firewalld is installed
+- name: Check if firewalld is installed
+  command: rpm -q firewalld
+  register: firewalld_installed
+  failed_when: no
+  changed_when: no
+
 # FreeIPA Installation
 - name: adding epel repo
   package: name={{item}} state=installed
@@ -16,7 +23,6 @@
     - bind
     - bind-utils
     - ipa-server
-    - ipa-server-dns
 
 - name: configuring firewall services
   firewalld: service={{item}} permanent=true state=enabled
@@ -26,6 +32,7 @@
     - ldap
     - ldaps
     - kerberos
+  when: firewalld_installed.rc == 0
 
 - name: configuring firewall UDP ports
   firewalld: port={{item}} permanent=true state=enabled
@@ -33,14 +40,12 @@
     - 88/udp
     - 464/udp
     - 123/udp
+  when: firewalld_installed.rc == 0
 
 - name: reload the firewall
   command: firewall-cmd --reload
+  when: firewalld_installed.rc == 0
 
 - name: installing freeipa
   command: ipa-server-install --unattended --realm={{domain}} --ds-password={{dsmgr_password}} --admin-password={{admin_password}} --setup-dns --forwarder=8.8.8.8 --forwarder=8.8.4.4
   when: ipa_stat.stat.exists == False
-
-# - name: Setting default IPA shell to bash
-#   command: ipa config-mod --defaultshell=/bin/bash                                                                                   
-
