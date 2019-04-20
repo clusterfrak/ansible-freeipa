@@ -13,19 +13,19 @@
 
 # FreeIPA Installation
 - name: adding epel repo
-  package: name={{item}} state=installed
+  package: name={{ item }} state=installed
   with_items:
     - epel-release
 
 - name: adding required freeipa packages
-  package: name={{item}} state=installed
+  package: name={{ item }} state=installed
   with_items:
     - bind
     - bind-utils
     - ipa-server
 
 - name: configuring firewall services
-  firewalld: service={{item}} permanent=true state=enabled
+  firewalld: service={{ item }} permanent=true state=enabled
   with_items:
     - http
     - https
@@ -35,7 +35,7 @@
   when: firewalld_installed.rc == 0
 
 - name: configuring firewall UDP ports
-  firewalld: port={{item}} permanent=true state=enabled
+  firewalld: port={{ item }} permanent=true state=enabled
   with_items:
     - 88/udp
     - 464/udp
@@ -47,5 +47,5 @@
   when: firewalld_installed.rc == 0
 
 - name: installing freeipa
-  command: ipa-server-install --unattended --realm={{domain}} --ds-password={{dsmgr_password}} --admin-password={{admin_password}} --setup-dns --forwarder=8.8.8.8 --forwarder=8.8.4.4
+  command: ipa-server-install --unattended --realm={{ domain }} --ds-password={{ dsmgr_password }} --admin-password={{ admin_password }} --setup-dns --forwarder=8.8.8.8 --forwarder=8.8.4.4
   when: ipa_stat.stat.exists == False
