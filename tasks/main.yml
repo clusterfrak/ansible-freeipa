@@ -5,10 +5,9 @@
   register: ipa_stat
 
 # Check to see if firewalld is installed
-- name: Check to see if the firewalld package is installed
-  yum:
-    list: firewalld
-  register: firewalld_installed
+- name: grab list of installed packages
+  package_facts:
+    manager: auto
 
 # FreeIPA Installation
 - name: adding epel repo
@@ -31,7 +30,7 @@
     - ldap
     - ldaps
     - kerberos
-  when: firewalld_installed.results | selectattr("yumstate", "match", "installed") | list | length == 0
+  when: '"firewalld" in ansible_facts.packages'
 
 - name: configuring firewall UDP ports
   firewalld: port={{ item }} permanent=true state=enabled
@@ -39,11 +38,11 @@
     - 88/udp
     - 464/udp
     - 123/udp
-  when: firewalld_installed.results | selectattr("yumstate", "match", "installed") | list | length == 0
+  when: '"firewalld" in ansible_facts.packages'
 
 - name: reload the firewall
   command: firewall-cmd --reload
-  when: firewalld_installed.results | selectattr("yumstate", "match", "installed") | list | length == 0
+  when: '"firewalld" in ansible_facts.packages'
 
 - name: installing freeipa
   command: |
