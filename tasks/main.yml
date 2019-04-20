@@ -37,8 +37,14 @@
       - bind
       - bind-utils
       - ipa-server
+    state: present
+
+- name: adding ipa-server-dns if OS is EL7
+  yum:
+    name:
       - ipa-server-dns
     state: present
+  when: ansible_distribution_major_version > '6'
 
 - name: stop service firewalld
   systemd:
