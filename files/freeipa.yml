@@ -1,6 +1,5 @@
 ---
-# We do this in 2 different calls to avert bind notify restarts from failing after freeipa is installed.
-- hosts: ds-servers
+- hosts: dns-servers
   become: true
   roles:
     - clusterfrak.bind

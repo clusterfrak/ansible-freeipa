@@ -1,37 +1,56 @@
 ---
 # Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
-- name: stat IPA configuration
+- name: Check to see if IPA configuration file exists
   stat: path=/etc/ipa/default.conf
-  register: ipa_stat
+  register: ipa_config
+
+# Check to see if we are running in AWS
+- name: Check if host is running in AWS
+  uri:
+    url: http://169.254.169.254/latest/meta-data
+    timeout: 2
+  register: aws_uri_check
+  failed_when: False
+
+- set_fact:
+    is_aws: "{{ aws_uri_check.status == 200 }}"
+
+# Get EC2 Metadata
+- ec2_metadata_facts:
+  when: is_aws
+
+# Set the EC2 Private IP
+- set_fact:
+    ec2_ip: "{{ ansible_ec2_instance_identity_document_privateip }}"
+  when: is_aws
+
+# Derive the VPC DNS Address
+- name: Calculate the VPC DNS Address
+  shell: |
+    set -o pipefail
+    echo {{ ec2_ip }} | awk -F"." '{print $1"."$2"."$3"."2}'
+  register: vpc_dns
+  when: is_aws
+
+- name: Set the primary_dns_forwarder variable
+  set_fact:
+    primary_forwarder: "{{ vpc_dns.stdout if is_aws else '8.8.8.8' }}"
+    secondary_forwarder: "{{ '8.8.8.8' if is_aws else '8.8.4.4' }}"
 
 # Check to see if firewalld is installed
-- name: grab list of installed packages
+- name: Grab list of installed packages
   package_facts:
     manager: auto
 
-# FreeIPA Installation
-# Commenting out package as iteration through items is slow, and yum is faster.
-# - name: adding epel repo
-#   package: name={{ item }} state=installed
-#   with_items:
-#     - epel-release
-
-- name: adding epel repo
+# Epel Install
+- name: Add Epel Yum Repo
   yum:
     name:
       - epel-release
     state: present
 
-# Commenting out package as iteration through items is slow, and yum is faster.
-# - name: adding required freeipa packages
-#   package: name={{ item }} state=installed
-#   with_items:
-#     - bind
-#     - bind-utils
-#     - ipa-server
-#     - ipa-server-dns
-
-- name: adding required freeipa packages
+# FreeIPA Installation
+- name: Add required FreeIPA packages
   yum:
     name:
       - bind
@@ -39,14 +58,15 @@
       - ipa-server
     state: present
 
-- name: adding ipa-server-dns if OS is EL7
+- name: Add ipa-server-dns package if current OS is EL7 or greater
   yum:
     name:
       - ipa-server-dns
     state: present
   when: ansible_distribution_major_version > '6'
 
-- name: stop service firewalld
+# Configure Firewalld
+- name: Stop firewalld service if present
   systemd:
     name: firewalld
     state: stopped
@@ -54,7 +74,7 @@
   failed_when: no
   changed_when: no
 
-- name: configuring firewall services
+- name: Add HTTP(S)/LDAP(s)/Kerberos services to firewalld if present
   firewalld: service={{ item }} permanent=true state=enabled
   with_items:
     - http
@@ -64,7 +84,7 @@
     - kerberos
   when: '"firewalld" in ansible_facts.packages'
 
-- name: configuring firewall UDP ports
+- name: Add Kerberos/Kerberos password exchange/NTP UDP ports to firewalld if present
   firewalld: port={{ item }} permanent=true state=enabled
   with_items:
     - 88/udp
@@ -72,13 +92,14 @@
     - 123/udp
   when: '"firewalld" in ansible_facts.packages'
 
-- name: start service firewalld
+- name: Start firewalld if present
   systemd:
     name: firewalld
     state: started
   when: '"firewalld" in ansible_facts.packages'
 
-- name: installing freeipa
+# Perform Free IPA Setup
+- name: Perform the FreeIPA setup
   command: |
     ipa-server-install \
     --unattended \
@@ -86,6 +107,6 @@
     --ds-password={{ dsmgr_password }} \
     --admin-password={{ admin_password }} \
     --setup-dns \
-    --forwarder=8.8.8.8 \
-    --forwarder=8.8.4.4
-  when: not ipa_stat.stat.exists
+    --forwarder={{ primary_forwarder }} \
+    --forwarder={{ secondary_forwarder }}
+  when: not ipa_config.stat.exists
