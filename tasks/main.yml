@@ -32,10 +32,14 @@
   register: vpc_dns
   when: is_aws
 
+# Commenting out the assignment of the VPC DNS server as a forwarder
+# VPC DNS server is unable to resolve root zones and causes the setup to fail. 
 - name: Set the primary_dns_forwarder variable
   set_fact:
-    primary_forwarder: "{{ vpc_dns.stdout if is_aws else '8.8.8.8' }}"
-    secondary_forwarder: "{{ '8.8.8.8' if is_aws else '8.8.4.4' }}"
+    primary_forwarder: '8.8.8.8'
+    secondary_forwarder: '8.8.4.4'
+    # primary_forwarder: "{{ vpc_dns.stdout if is_aws else '8.8.8.8' }}"
+    # secondary_forwarder: "{{ '8.8.8.8' if is_aws else '8.8.4.4' }}"
 
 # Check to see if firewalld is installed
 - name: Grab list of installed packages
