@@ -170,5 +170,9 @@
   when: is_aws
 
 - name: Scrubbing Environment Variables...
-  command: "unset MGR_PASS && unset ADMIN_PASS"
+  shell: unset MGR_PASS && unset ADMIN_PASS
+  args:
+    warn: False
   when: is_aws
+  ignore_errors: yes
+
