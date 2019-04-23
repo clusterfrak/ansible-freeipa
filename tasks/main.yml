@@ -7,7 +7,8 @@
   register: aws_uri_check
   ignore_errors: yes
 
-- set_fact:
+- name: Set Flag if running in AWS
+  set_fact:
     is_aws: "{{ aws_uri_check.status == 200 }}"
   when: not "'FAILED' in aws_uri_check.stderr"
   ignore_errors: yes
@@ -51,21 +52,14 @@
   systemd:
     name: firewalld
     state: stopped
-  when:
-    - ansible_distribution_major_version > '6'
-    - '"firewalld" in ansible_facts.packages'
-  ignore_errors: yes
-
-- name: Check Firewalld Service
-  shell: systemctl status firewalld.service
-  register: firewalld_service_status
+  register: firewalld_service_stop
   when:
     - ansible_distribution_major_version > '6'
     - '"firewalld" in ansible_facts.packages'
   ignore_errors: yes
 
 - debug:
-    msg: "{{ firewalld_service_status.stdout }}"
+    msg: "{{ firewalld_service_stop.status }}"
   when:
     - ansible_distribution_major_version > '6'
     - '"firewalld" in ansible_facts.packages'
@@ -97,9 +91,17 @@
   systemd:
     name: firewalld
     state: started
+  register: firewalld_service_start
   when:
     - ansible_distribution_major_version > '6'
     - '"firewalld" in ansible_facts.packages'
+
+- debug:
+    msg: "{{ firewalld_service_start.status }}"
+  when:
+    - ansible_distribution_major_version > '6'
+    - '"firewalld" in ansible_facts.packages'
+  ignore_errors: yes
 
 # Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
 - name: Check to see if IPA configuration file exists
@@ -108,7 +110,8 @@
 
 - debug:
     msg:
-      - "{{ 'Searching for IPA config file /etc/ipa/default.conf:... FILE FOUND' if ipa_config.stat.exists else 'Searching for IPA config file /etc/ipa/default.conf:... FILE NOT FOUND' }}"
+      - "Searching for IPA config file /etc/ipa/default.conf..."
+      - "{{ 'FILE FOUND' if ipa_config.stat.exists else 'FILE NOT FOUND' }}"
 
 # Perform Free IPA Setup
 - name: Perform the FreeIPA setup
