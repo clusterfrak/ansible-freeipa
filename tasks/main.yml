@@ -1,45 +1,22 @@
 ---
-# Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
-- name: Check to see if IPA configuration file exists
-  stat: path=/etc/ipa/default.conf
-  register: ipa_config
-
 # Check to see if we are running in AWS
 - name: Check if host is running in AWS
   uri:
     url: http://169.254.169.254/latest/meta-data
     timeout: 2
   register: aws_uri_check
-  failed_when: False
+  ignore_errors: yes
 
 - set_fact:
     is_aws: "{{ aws_uri_check.status == 200 }}"
+  when: not "'FAILED' in aws_uri_check.stderr"
+  ignore_errors: yes
 
-# Get EC2 Metadata
-- ec2_metadata_facts:
-  when: is_aws
-
-# Set the EC2 Private IP
-- set_fact:
-    ec2_ip: "{{ ansible_ec2_instance_identity_document_privateip }}"
-  when: is_aws
-
-# Derive the VPC DNS Address
-- name: Calculate the VPC DNS Address
-  shell: |
-    set -o pipefail
-    echo {{ ec2_ip }} | awk -F"." '{print $1"."$2"."$3"."2}'
-  register: vpc_dns
-  when: is_aws
-
-# Commenting out the assignment of the VPC DNS server as a forwarder
-# VPC DNS server is unable to resolve root zones and causes the setup to fail. 
-- name: Set the primary_dns_forwarder variable
-  set_fact:
-    primary_forwarder: '8.8.8.8'
-    secondary_forwarder: '8.8.4.4'
-    # primary_forwarder: "{{ vpc_dns.stdout if is_aws else '8.8.8.8' }}"
-    # secondary_forwarder: "{{ '8.8.8.8' if is_aws else '8.8.4.4' }}"
+- debug:
+    msg:
+      - "{{ 'EnvironmentType: AWS' if is_aws else 'EnvironmentType: Non-AWS' }}"
+      - "AWS Environment check returned:"
+      - "{{ aws_uri_check.status }}"
 
 # Check to see if firewalld is installed
 - name: Grab list of installed packages
@@ -74,9 +51,25 @@
   systemd:
     name: firewalld
     state: stopped
-  when: '"firewalld" in ansible_facts.packages'
-  failed_when: no
-  changed_when: no
+  when:
+    - ansible_distribution_major_version > '6'
+    - '"firewalld" in ansible_facts.packages'
+  ignore_errors: yes
+
+- name: Check Firewalld Service
+  shell: systemctl status firewalld.service
+  register: firewalld_service_status
+  when:
+    - ansible_distribution_major_version > '6'
+    - '"firewalld" in ansible_facts.packages'
+  ignore_errors: yes
+
+- debug:
+    msg: "{{ firewalld_service_status.stdout }}"
+  when:
+    - ansible_distribution_major_version > '6'
+    - '"firewalld" in ansible_facts.packages'
+  ignore_errors: yes
 
 - name: Add HTTP(S)/LDAP(s)/Kerberos services to firewalld if present
   firewalld: service={{ item }} permanent=true state=enabled
@@ -86,7 +79,9 @@
     - ldap
     - ldaps
     - kerberos
-  when: '"firewalld" in ansible_facts.packages'
+  when:
+    - ansible_distribution_major_version > '6'
+    - '"firewalld" in ansible_facts.packages'
 
 - name: Add Kerberos/Kerberos password exchange/NTP UDP ports to firewalld if present
   firewalld: port={{ item }} permanent=true state=enabled
@@ -94,13 +89,26 @@
     - 88/udp
     - 464/udp
     - 123/udp
-  when: '"firewalld" in ansible_facts.packages'
+  when:
+    - ansible_distribution_major_version > '6'
+    - '"firewalld" in ansible_facts.packages'
 
 - name: Start firewalld if present
   systemd:
     name: firewalld
     state: started
-  when: '"firewalld" in ansible_facts.packages'
+  when:
+    - ansible_distribution_major_version > '6'
+    - '"firewalld" in ansible_facts.packages'
+
+# Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
+- name: Check to see if IPA configuration file exists
+  stat: path=/etc/ipa/default.conf
+  register: ipa_config
+
+- debug:
+    msg:
+      - "{{ 'Searching for IPA config file /etc/ipa/default.conf:... FILE FOUND' if ipa_config.stat.exists else 'Searching for IPA config file /etc/ipa/default.conf:... FILE NOT FOUND' }}"
 
 # Perform Free IPA Setup
 - name: Perform the FreeIPA setup
@@ -111,8 +119,15 @@
     --ds-password={{ dsmgr_password }} \
     --admin-password={{ admin_password }} \
     --setup-dns \
-    --forwarder={{ primary_forwarder }} \
-    --forwarder={{ secondary_forwarder }}
+    --forwarder={{ primary_dns_forwarder }} \
+    --forwarder={{ secondary_dns_forwarder }}
+  register: ipa_setup
+  failed_when: "'FAILED' in ipa_setup.stderr"
+  when: not ipa_config.stat.exists
+
+- debug:
+    msg:
+      - "IPA Setup State: {{ ipa_setup.stdout }}"
   when: not ipa_config.stat.exists
 
 # Remove password references if executed in AWS
@@ -131,5 +146,5 @@
   when: is_aws
 
 - name: Cleanup Environment Variables
-  shell: "unset MGR_PASS && unset ADMIN_PASS"
+  command: "unset MGR_PASS && unset ADMIN_PASS"
   when: is_aws

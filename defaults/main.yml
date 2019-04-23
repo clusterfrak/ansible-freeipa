@@ -2,3 +2,5 @@
 domain: "{{ lookup('env','DOMAIN') | default('mydomain.local',true) }}"
 dsmgr_password: "{{ lookup('env','MGR_PASS') | default('Fr33IPA#DS#MGR',true) }}"
 admin_password: "{{ lookup('env','ADMIN_PASS') | default('Fr33IPA#DS#Admin',true) }}"
+primary_dns_forwarder: "{{ lookup('env','PRI_DNS_FORWARDER') | default('8.8.8.8',true) }}"
+secondary_dns_forwarder: "{{ lookup('env','SEC_DNS_FORWARDER') | default('8.8.4.4',true) }}"
