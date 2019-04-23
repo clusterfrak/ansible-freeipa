@@ -120,16 +120,16 @@
   lineinfile:
     dest: /etc/environment
     state: absent
-    regexp: '^MGR_PASS='
+    regexp: '^export MGR_PASS='
   when: is_aws
 
 - name: Cleanup ADMIN_PASS
   lineinfile:
     dest: /etc/environment
     state: absent
-    regexp: '^ADMIN_PASS='
+    regexp: '^export ADMIN_PASS='
   when: is_aws
 
 - name: Cleanup Environment Variables
-  command: unset MGR_PASS && unset ADMIN_PASS
+  shell: "unset MGR_PASS && unset ADMIN_PASS"
   when: is_aws
