@@ -1,38 +1,59 @@
 ---
-# Check to see if we are running in AWS
-- name: Check if host is running in AWS
+# =====================================
+# AWS Environment Check
+# =====================================
+- name: Checking if runtime environment is AWS...
   uri:
     url: http://169.254.169.254/latest/meta-data
     timeout: 2
   register: aws_uri_check
   ignore_errors: yes
 
-- name: Set Flag if running in AWS
+- name: "AWS Response:"
+  debug:
+    msg:
+      - "Response Code: {{ aws_uri_check.status }} --> {{ aws_uri_check.msg }}"
+
+- name: Setting is_aws flag value...
   set_fact:
     is_aws: "{{ aws_uri_check.status == 200 }}"
-  when: not "'FAILED' in aws_uri_check.stderr"
-  ignore_errors: yes
+  when: aws_uri_check.status == 200
 
-- debug:
+- name: "{{ 'EnvironmentType: AWS' if is_aws else 'EnvironmentType: Non-AWS' }}"
+  debug:
     msg:
-      - "{{ 'EnvironmentType: AWS' if is_aws else 'EnvironmentType: Non-AWS' }}"
-      - "AWS Environment check returned:"
-      - "{{ aws_uri_check.status }}"
+      - "AWS Environment check returned: {{ aws_uri_check.status }}"
+      - "is_aws flag set to: {{ 'True' if aws_uri_check.status == 200 else 'False'  }}"
 
-# Check to see if firewalld is installed
-- name: Grab list of installed packages
+# =====================================
+# Firewalld Service Check
+# =====================================
+- name: Gathering list of all installed packages...
   package_facts:
     manager: auto
 
-# Epel Install
-- name: Add Epel Yum Repo
+- name: Checking if firewalld is installed...
+  set_fact:
+    is_firewalld: "{{ 'firewalld' in ansible_facts.packages }}"
+  when: '"firewalld" in ansible_facts.packages'
+
+- name: "Firewalld State: {{ 'Installed' if is_firewalld else 'Not Installed' }}"
+  debug:
+    msg:
+      - "is_firewalld flag set to: {{ 'True' if 'firewalld' in ansible_facts.packages else 'False'  }}"
+
+# =====================================
+# FreeIPA Service Install
+# -------------------------------------
+# Install FreeIPA and Dependancy Packages
+# =====================================
+- name: Installing Epel Yum Repository...
   yum:
     name:
       - epel-release
     state: present
 
-# FreeIPA Installation
-- name: Add required FreeIPA packages
+- name: Installing FreeIPA and dependancy packages...
   yum:
     name:
       - bind
@@ -40,32 +61,33 @@
       - ipa-server
     state: present
 
-- name: Add ipa-server-dns package if current OS is EL7 or greater
+- name: Adding ipa-server-dns package (EL7)...
   yum:
     name:
       - ipa-server-dns
     state: present
   when: ansible_distribution_major_version > '6'
 
+# -------------------
 # Configure Firewalld
-- name: Stop firewalld service if present
+# -------------------
+- name: Stopping firewalld service...
   systemd:
     name: firewalld
     state: stopped
-  register: firewalld_service_stop
   when:
-    - ansible_distribution_major_version > '6'
-    - '"firewalld" in ansible_facts.packages'
-  ignore_errors: yes
+    - is_firewalld
 
-- debug:
-    msg: "{{ firewalld_service_stop.status }}"
-  when:
-    - ansible_distribution_major_version > '6'
-    - '"firewalld" in ansible_facts.packages'
-  ignore_errors: yes
+- name: Re-Gathering Service States...
+  service_facts:
+  when: is_firewalld
 
-- name: Add HTTP(S)/LDAP(s)/Kerberos services to firewalld if present
+- name: "Firewalld Service State:"
+  debug:
+    msg: "{{ ansible_facts.services['firewalld.service'] }}"
+  when: is_firewalld
+
+- name: Adding HTTP(S)|LDAP(s)|Kerberos services to firewalld...
   firewalld: service={{ item }} permanent=true state=enabled
   with_items:
     - http
@@ -73,44 +95,42 @@
     - ldap
     - ldaps
     - kerberos
-  when:
-    - ansible_distribution_major_version > '6'
-    - '"firewalld" in ansible_facts.packages'
+  when: is_firewalld
 
-- name: Add Kerberos/Kerberos password exchange/NTP UDP ports to firewalld if present
+- name: Adding Kerberos|Kerberos Password Exchange|NTP UDP ports to firewalld...
   firewalld: port={{ item }} permanent=true state=enabled
   with_items:
     - 88/udp
     - 464/udp
     - 123/udp
-  when:
-    - ansible_distribution_major_version > '6'
-    - '"firewalld" in ansible_facts.packages'
+  when: is_firewalld
 
-- name: Start firewalld if present
+- name: Starting firewalld service...
   systemd:
     name: firewalld
     state: started
-  register: firewalld_service_start
-  when:
-    - ansible_distribution_major_version > '6'
-    - '"firewalld" in ansible_facts.packages'
+  when: is_firewalld
 
-- debug:
-    msg: "{{ firewalld_service_start.status }}"
-  when:
-    - ansible_distribution_major_version > '6'
-    - '"firewalld" in ansible_facts.packages'
-  ignore_errors: yes
+- name: Re-Gathering Service States...
+  service_facts:
+  when: is_firewalld
 
+- name: "Firewalld Service State:"
+  debug:
+    msg: "{{ ansible_facts.services['firewalld.service'] }}"
+  when: is_firewalld
+
+# -------------------
+# Run FreeIPA Setup
+# -------------------
 # Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
-- name: Check to see if IPA configuration file exists
+- name: Checking for previous freeipa installations...
   stat: path=/etc/ipa/default.conf
   register: ipa_config
 
-- debug:
+- name: "Searching for existing IPA config file /etc/ipa/default.conf:"
+  debug:
     msg:
-      - "Searching for IPA config file /etc/ipa/default.conf..."
       - "{{ 'FILE FOUND' if ipa_config.stat.exists else 'FILE NOT FOUND' }}"
 
 # Perform Free IPA Setup
@@ -128,26 +148,27 @@
   failed_when: "'FAILED' in ipa_setup.stderr"
   when: not ipa_config.stat.exists
 
-- debug:
+- name: "IPA Setup State:"
+  debug:
     msg:
-      - "IPA Setup State: {{ ipa_setup.stdout }}"
+      - "{{ ipa_setup.stdout }}"
   when: not ipa_config.stat.exists
 
 # Remove password references if executed in AWS
-- name: Cleanup MGR_PASS
+- name: Removing MGR_PASS references...
   lineinfile:
     dest: /etc/environment
     state: absent
     regexp: '^export MGR_PASS='
   when: is_aws
 
-- name: Cleanup ADMIN_PASS
+- name: Removing ADMIN_PASS references...
   lineinfile:
     dest: /etc/environment
     state: absent
     regexp: '^export ADMIN_PASS='
   when: is_aws
 
-- name: Cleanup Environment Variables
+- name: Scrubbing Environment Variables...
   command: "unset MGR_PASS && unset ADMIN_PASS"
   when: is_aws
