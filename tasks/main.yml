@@ -124,7 +124,7 @@
 # Run FreeIPA Setup
 # -------------------
 # Stat the named.conf and IPA default.conf file, if the file exists, then IPA is already configured.
-- name: Checking for previous freeipa installations...
+- name: Checking for previous FreeIPA installations...
   stat: path=/etc/ipa/default.conf
   register: ipa_config
 
@@ -134,7 +134,7 @@
       - "{{ 'FILE FOUND' if ipa_config.stat.exists else 'FILE NOT FOUND' }}"
 
 # Perform Free IPA Setup
-- name: Perform the FreeIPA setup
+- name: Performing the FreeIPA setup...
   command: |
     ipa-server-install \
     --unattended \
@@ -173,5 +173,8 @@
   shell: unset MGR_PASS && unset ADMIN_PASS
   args:
     warn: False
+  register: unset_vars
+  failed_when: "'FAILED' in unset_vars.stderr"
+  changed_when: False
   when: is_aws
   ignore_errors: yes
