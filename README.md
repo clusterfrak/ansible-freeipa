@@ -162,4 +162,3 @@ BSD
 
 [Clusterfrak Doc Site](http://clusterfrak.com) <br>
 
-[Container Doc Site](http://appcontainers.com) <br>
